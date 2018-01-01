@@ -7,26 +7,33 @@ import time
 _count = 0
 
 class ScriptWrapper:
-    def __init__(self, imgChessTemplate:np.ndarray, imgWhitePointTemplate:np.ndarray):
+    def __init__(self, imgListChessTemplate:list, imgWhitePointTemplate:np.ndarray):
         self.__distance = 0
-        self.__imgChessTemplate:np.ndarray = imgChessTemplate
+        self.__imgListChessTemplate:np.ndarray = imgListChessTemplate
         self.__imgWhitePointTemplate: np.ndarray = imgWhitePointTemplate
         self.__bIsWhitePointMatched = False
+        self.__matchedChessTemplate = None
 
 
     def _FindStartPoint(self, imgSnapshotGray:np.ndarray):
-        matched = cv.matchTemplate(imgSnapshotGray, self.__imgChessTemplate, cv.TM_CCOEFF)
-        loc = cv.minMaxLoc(matched)
+        startPoint = (-1, -1)
+        for i in range(len(self.__imgListChessTemplate)):
+            t = self.__imgListChessTemplate[i]
+            matched = cv.matchTemplate(imgSnapshotGray, t, cv.TM_CCOEFF_NORMED)
+            minVal, maxVal, minLoc, maxLoc = cv.minMaxLoc(matched)
 
-        imgSzH, imgSzW = self.__imgChessTemplate.shape
-        startPoint = (int(loc[3][0] + imgSzW / 2), int(loc[3][1] + imgSzH))
+            if maxVal >= 0.5 or i == len(self.__imgListChessTemplate) - 1:
+                imgSzH, imgSzW = t.shape
+                startPoint = (int(maxLoc[0] + imgSzW / 2), int(maxLoc[1] + imgSzH))
+                self.__matchedChessTemplate = t
+
         return startPoint
 
 
     def _FindEndOfMass(self, imgSnapshotGray:np.ndarray, startPoint):
         imgSnapshotGray = cv.GaussianBlur(imgSnapshotGray, (5, 5), 1.9)
-        # plt.imshow(imgSnapshotGray, cmap="gray")
-        # plt.show()
+        #plt.imshow(imgSnapshotGray, cmap="gray")
+        #plt.show()
 
         res = cv.matchTemplate(imgSnapshotGray, self.__imgWhitePointTemplate, cv.TM_CCOEFF_NORMED)
         minVal, maxVal, minLoc, maxLoc = cv.minMaxLoc(res)
@@ -40,31 +47,31 @@ class ScriptWrapper:
         else:
             margin = cv.Canny(imgSnapshotGray, 1, 12)
 
-            h, w = self.__imgChessTemplate.shape
-            for i in range(int(startPoint[0] - w / 2 - 1), int(startPoint[0] + w / 2 + 1)):
+            h, w = self.__matchedChessTemplate.shape
+            for i in range(int(startPoint[0] - w / 2 - 10), int(startPoint[0] + w / 2 + 10)):
                 for j in range(int(startPoint[1] - h - 100), startPoint[1]):
                     margin[j, i] = 0
 
             margin[0:300] = 0
             kernel = np.ones([2, 3] ,dtype=np.uint8)
             margin = cv.morphologyEx(margin, cv.MORPH_DILATE, kernel)
-            lines = cv.HoughLinesP(margin, 1, np.pi/180, 180, minLineLength=60)
+            lines = cv.HoughLinesP(margin, 1, np.pi/180, 140, minLineLength=60)
             if not lines is None:
                 for errorLine in lines:
                     # print(errorLine[0, 1], errorLine[0, 2])
                     margin[errorLine[0, 1] - 2 : errorLine[0, 1] + 3] = 0
 
-            # plt.imshow(margin, cmap="gray")
-            # plt.show()
+            #plt.imshow(margin, cmap="gray")
+            #plt.show()
 
             res = np.where(margin == 0xff)
             posY = np.min(res[0][0])
-            posX = np.mean(np.where(margin[posY] == 0xff)[0][0])
-            posY += 18
+            posX = np.mean(np.where(margin[posY] == 0xff)[0][0]) + 3
+            posY += 16
 
             self.__bIsWhitePointMatched = False
             cv.circle(margin, (int(posX), int(posY)), 5, 255, -1)
-            plt.imsave(f"E:\\Users\\Administrator\\pictures\\jump_game\\margin{_count}.jpg", margin, cmap="gray")
+            plt.imsave(f"E:\\Users\\Administrator\\pictures\\jump_game\\margin\\margin{_count}.jpg", margin, cmap="gray")
 
         return int(posX), int(posY)
 
@@ -75,11 +82,11 @@ class ScriptWrapper:
         os.system(f"adb shell rm /sdcard/snapshot{_count}.png")
 
         imgSnapshot = cv.imread(f"E:\\Users\\Administrator\\pictures\\jump_game\\origin\\snapshot{_count}.png")
-        # imgSnapshot = cv.imread("E:\\Users\\Administrator\\pictures\\error\\snapshot225.png")
+        # imgSnapshot = cv.imread("E:\\Users\\Administrator\\pictures\\error\\snapshot2.png")
 
         imgSnapshot = cv.cvtColor(imgSnapshot, cv.COLOR_BGR2HSV)
         h, s, v = cv.split(imgSnapshot)
-        s = cv.pow(np.float32(s), 1/1.2)
+        s = cv.pow(np.float32(s), 1/2.2)
         v = cv.pow(np.float32(v), 1/1.8)
         cv.normalize(s, s, 0, 255, cv.NORM_MINMAX)
         cv.normalize(v, v, 0, 255, cv.NORM_MINMAX)
@@ -114,11 +121,22 @@ class ScriptWrapper:
 if __name__ == "__main__":
     count = 0
     os.system("cd E:\\Users\\Administrator\\pictures\\jump_game\\origin")
-    imgChessTemplate =  cv.imread("E:\\Users\\Administrator\\pictures\\jump_game\\template.jpg", 0)
+
+    # 模板大小都是
+    listTemplate = list()
+    imgChessTemplate1 =  cv.imread("E:\\Users\\Administrator\\pictures\\jump_game\\template1.jpg", 0)
+    listTemplate.append(imgChessTemplate1)
+
+    imgChessTemplate2 = cv.imread("E:\\Users\\Administrator\\pictures\\jump_game\\template2.jpg", 0)
+    listTemplate.append(imgChessTemplate2)
+
+    imgChessTemplate3 = cv.imread("E:\\Users\\Administrator\\pictures\\jump_game\\template3.jpg", 0)
+    listTemplate.append(imgChessTemplate3)
+
     imgWhitePointTemplate = cv.imread("E:\\Users\\Administrator\\pictures\\jump_game\\whitePoint.jpg", 0)
-    wrapper = ScriptWrapper(imgChessTemplate, imgWhitePointTemplate)
+    wrapper = ScriptWrapper(listTemplate, imgWhitePointTemplate)
 
     for i in range(2000):
-        time.sleep(3)
+        time.sleep(3.5)
         wrapper.Measure()
         wrapper.Apply()
