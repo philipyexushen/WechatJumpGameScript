@@ -49,7 +49,7 @@ class ScriptWrapper:
             kernel = np.ones([2, 3] ,dtype=np.uint8)
             margin = cv.morphologyEx(margin, cv.MORPH_DILATE, kernel)
             lines = cv.HoughLinesP(margin, 1, np.pi/180, 180, minLineLength=60)
-            if lines:
+            if not lines is None:
                 for errorLine in lines:
                     # print(errorLine[0, 1], errorLine[0, 2])
                     margin[errorLine[0, 1] - 2 : errorLine[0, 1] + 3] = 0
