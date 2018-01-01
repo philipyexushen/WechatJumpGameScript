@@ -24,9 +24,9 @@ class ScriptWrapper:
 
 
     def _FindEndOfMass(self, imgSnapshotGray:np.ndarray, startPoint):
-        imgSnapshotGray = cv.GaussianBlur(imgSnapshotGray, (5, 5), 1.8)
-        #plt.imshow(imgSnapshotGray, cmap="gray")
-        #plt.show()
+        imgSnapshotGray = cv.GaussianBlur(imgSnapshotGray, (5, 5), 1.9)
+        # plt.imshow(imgSnapshotGray, cmap="gray")
+        # plt.show()
 
         res = cv.matchTemplate(imgSnapshotGray, self.__imgWhitePointTemplate, cv.TM_CCOEFF_NORMED)
         minVal, maxVal, minLoc, maxLoc = cv.minMaxLoc(res)
@@ -46,6 +46,13 @@ class ScriptWrapper:
                     margin[j, i] = 0
 
             margin[0:300] = 0
+            kernel = np.ones([2, 3] ,dtype=np.uint8)
+            margin = cv.morphologyEx(margin, cv.MORPH_DILATE, kernel)
+            lines = cv.HoughLinesP(margin, 1, np.pi/180, 180, minLineLength=60)
+            for errorLine in lines:
+                # print(errorLine[0, 1], errorLine[0, 2])
+                margin[errorLine[0, 1] - 2 : errorLine[0, 1] + 3] = 0
+
             # plt.imshow(margin, cmap="gray")
             # plt.show()
 
@@ -66,14 +73,16 @@ class ScriptWrapper:
         os.system(f"adb pull /sdcard/snapshot{_count}.png -p E:\\Users\\Administrator\\pictures\\jump_game\\origin\\snapshot{_count}.png")
         os.system(f"adb shell rm /sdcard/snapshot{_count}.png")
 
-        imgSnapshot = cv.imread(f"E:\\Users\\Administrator\\pictures\\jump_game\\origin\\snapshot{_count}.png")
-        # imgSnapshot = cv.imread("E:\\Users\\Administrator\\pictures\\error\\snapshot102.png")
+        #imgSnapshot = cv.imread(f"E:\\Users\\Administrator\\pictures\\jump_game\\origin\\snapshot{_count}.png")
+        imgSnapshot = cv.imread("E:\\Users\\Administrator\\pictures\\error\\snapshot225.png")
 
         imgSnapshot = cv.cvtColor(imgSnapshot, cv.COLOR_BGR2HSV)
         h, s, v = cv.split(imgSnapshot)
         s = cv.pow(np.float32(s), 1/1.2)
+        v = cv.pow(np.float32(v), 1/1.8)
         cv.normalize(s, s, 0, 255, cv.NORM_MINMAX)
-        imgSnapshot = cv.merge((h, np.uint8(s), v))
+        cv.normalize(v, v, 0, 255, cv.NORM_MINMAX)
+        imgSnapshot = cv.merge((h, np.uint8(s), np.uint8(v)))
         imgSnapshot = cv.cvtColor(imgSnapshot, cv.COLOR_HSV2BGR)
         imgSnapshotGray = cv.cvtColor(imgSnapshot, cv.COLOR_BGR2GRAY)
 
@@ -95,7 +104,7 @@ class ScriptWrapper:
         elif dis < 250:
             intensity = 2.94 if not self.__bIsWhitePointMatched else 2.95
         else:
-            intensity = 2.92 if not self.__bIsWhitePointMatched else 2.94
+            intensity = 2.92 if not self.__bIsWhitePointMatched else 2.93
 
         print(f"[{_count}] distance = {dis} time = {dis * intensity}")
         os.system(f"adb shell input touchscreen swipe 320 410 320 410 { int(dis *intensity)}")
@@ -111,4 +120,4 @@ if __name__ == "__main__":
     for i in range(2000):
         time.sleep(3)
         wrapper.Measure()
-        # wrapper.Apply()
+        wrapper.Apply()
