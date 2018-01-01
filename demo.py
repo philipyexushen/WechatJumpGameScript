@@ -38,7 +38,7 @@ class ScriptWrapper:
         res = cv.matchTemplate(imgSnapshotGray, self.__imgWhitePointTemplate, cv.TM_CCOEFF_NORMED)
         minVal, maxVal, minLoc, maxLoc = cv.minMaxLoc(res)
 
-        if maxVal >= 0.95:
+        if maxVal >= 0.965:
             wth, wtw = self.__imgWhitePointTemplate.shape
             posX = maxLoc[0] + wtw / 2
             posY = maxLoc[1] + wth / 2
@@ -48,21 +48,24 @@ class ScriptWrapper:
             margin = cv.Canny(imgSnapshotGray, 1, 12)
 
             h, w = self.__matchedChessTemplate.shape
-            for i in range(int(startPoint[0] - w / 2 - 10), int(startPoint[0] + w / 2 + 10)):
+            for i in range(int(startPoint[0] - w / 2 - 20), int(startPoint[0] + w / 2 + 20)):
                 for j in range(int(startPoint[1] - h - 100), startPoint[1]):
                     margin[j, i] = 0
 
             margin[0:300] = 0
+            margin[:, 0:40] = 0
+            margin[:, margin.shape[1] - 40: margin.shape[1]] = 0
             kernel = np.ones([2, 3] ,dtype=np.uint8)
             margin = cv.morphologyEx(margin, cv.MORPH_DILATE, kernel)
-            lines = cv.HoughLinesP(margin, 1, np.pi/180, 140, minLineLength=60)
+            lines = cv.HoughLinesP(margin, 1, np.pi/180, 12, minLineLength=10)
             if not lines is None:
                 for errorLine in lines:
-                    # print(errorLine[0, 1], errorLine[0, 2])
-                    margin[errorLine[0, 1] - 2 : errorLine[0, 1] + 3] = 0
+                    if -3 <= errorLine[0, 1] - errorLine[0, 3] <= 3:
+                        # print(errorLine[0, 1], errorLine[0, 2])
+                        margin[errorLine[0, 1] - 3 : errorLine[0, 1] + 3] = 0
 
-            #plt.imshow(margin, cmap="gray")
-            #plt.show()
+            # plt.imshow(margin, cmap="gray")
+            # plt.show()
 
             res = np.where(margin == 0xff)
             posY = np.min(res[0][0])
@@ -82,11 +85,11 @@ class ScriptWrapper:
         os.system(f"adb shell rm /sdcard/snapshot{_count}.png")
 
         imgSnapshot = cv.imread(f"E:\\Users\\Administrator\\pictures\\jump_game\\origin\\snapshot{_count}.png")
-        # imgSnapshot = cv.imread("E:\\Users\\Administrator\\pictures\\error\\snapshot2.png")
+        #imgSnapshot = cv.imread("E:\\Users\\Administrator\\pictures\\error\\snapshot321.png")
 
         imgSnapshot = cv.cvtColor(imgSnapshot, cv.COLOR_BGR2HSV)
         h, s, v = cv.split(imgSnapshot)
-        s = cv.pow(np.float32(s), 1/2.2)
+        s = cv.pow(np.float32(s), 1/2.4)
         v = cv.pow(np.float32(v), 1/1.8)
         cv.normalize(s, s, 0, 255, cv.NORM_MINMAX)
         cv.normalize(v, v, 0, 255, cv.NORM_MINMAX)
@@ -108,11 +111,11 @@ class ScriptWrapper:
         _count += 1
 
         if dis < 180:
-            intensity = 2.96
+            intensity = 2.98
         elif dis < 250:
-            intensity = 2.94 if not self.__bIsWhitePointMatched else 2.95
+            intensity = 2.97 if not self.__bIsWhitePointMatched else 2.96
         else:
-            intensity = 2.92 if not self.__bIsWhitePointMatched else 2.93
+            intensity = 2.94 if not self.__bIsWhitePointMatched else 2.95
 
         print(f"[{_count}] distance = {dis} time = {dis * intensity}")
         os.system(f"adb shell input touchscreen swipe 320 410 320 410 { int(dis *intensity)}")
